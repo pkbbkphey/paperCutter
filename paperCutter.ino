@@ -1,3 +1,4 @@
+// ARDUINO NANO PINOUT: https://i0.wp.com/www.teachmemicro.com/wp-content/uploads/2019/06/Arduino-Nano-pinout-4.jpg
 // PINOUTS
 // outputs
 #define led1 7 // small red LED
@@ -57,9 +58,7 @@ int temp(uint8_t num)
 
 int8_t error_swh()
 {
-    int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
-    Serial.print(swh_state, 2);
-    Serial.print(' ');
+    int8_t swh_state = ((!digitalRead(swh1)) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     if (swh_state == 0B011)
     {
         return 1;
@@ -77,7 +76,7 @@ int8_t error_swh()
 
 int8_t error_temp()
 {
-    return (temp(ther1) > 40 || temp(ther2) > 40 || temp(ther3) > 40) << 1 + (temp(ther4) > 40);
+    return ((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1 + (temp(ther4) > 40);
 }
 
 bool prev_a = 0;
@@ -99,26 +98,29 @@ bool error_rpm()
 
 void setup()
 {
-    Serial.begin(115200);
-    pinMode(led1, OUTPUT);
-    pinMode(led2, OUTPUT);
-    pinMode(led3, OUTPUT);
-    pinMode(relay_general, OUTPUT); // emergency stop, high if detect problem
-    pinMode(saw_spdMeter, INPUT);
-    pinMode(swh1, INPUT); // reads the state of the saw relay, high if turned on
-    pinMode(swh2, INPUT);
-    pinMode(swh3, INPUT);
+    // Serial.begin(115200);
+    // pinMode(led1, OUTPUT);
+    // pinMode(led2, OUTPUT);
+    // pinMode(led3, OUTPUT);
+    // pinMode(relay_general, OUTPUT); // emergency stop, high if detect problem
+    // pinMode(saw_spdMeter, INPUT);
+    // pinMode(swh1, INPUT); // reads the state of the saw relay, high if turned on
+    // pinMode(swh2, INPUT);
+    // pinMode(swh3, INPUT);
+    DDRD |= 0B10000100;
+    DDRB |= 0B000110; // set PD2, PD7, PB1, PB2 as output
     prev_state = digitalRead(saw_spdMeter); // mainMotor_rpm()
 }
 
 void loop()
 {
-    // initialize
-    digitalWrite(led1, 0);
-    digitalWrite(led2, 0);
-    digitalWrite(led3, 0);
-    bool relay_general_out = 0;
-    // digitalWrite(relay_general, 0);
+    // no need to initialize
+    // digitalWrite(led1, 0);
+    // digitalWrite(led2, 0);
+    // digitalWrite(led3, 0);
+    bool relay_general_out = 0, led1_out = 0, led2_out = 0, led3_out = 0;
+    bool blink_fast = (millis() % 500 > 250) ? 0 : 1;
+    bool blink_slow = (millis() % 1000 > 500) ? 0 : 1;
 
     // errors feedback
     int8_t error_swhB = error_swh();
@@ -128,14 +130,18 @@ void loop()
         switch (error_swhB)
         {
         case 1:
-            digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
-            digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
+            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            led2_out = blink_fast;
+            led3_out = blink_fast;
             break;
         case 2:
-            digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            led3_out = blink_fast;
             break;
         case 3:
-            digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
+            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
+            led2_out = blink_fast;
             break;
         default:
             break;
@@ -145,20 +151,28 @@ void loop()
     {
         // digitalWrite(relay_general, 1);
         relay_general_out = 1;
-        digitalWrite(led2, 1);
+        // digitalWrite(led2, 1);
+        led2_out = 1;
     }
     int8_t error_tempB = error_temp();
     if (error_tempB)
     {
         relay_general_out = 1;
-        if (error_tempB && 0B10 == 0B10)
+        if ((error_tempB & 0B10) == 0B10)
         {
-            digitalWrite(led2, (millis() % 1000 > 500) ? 0 : 1);
+            // digitalWrite(led2, (millis() % 1000 > 500) ? 0 : 1);
+            led2_out = blink_slow;
         }
-        if (error_tempB && 0B01 == 0B01)
+        if ((error_tempB & 0B01) == 0B01)
         {
-            digitalWrite(led3, (millis() % 1000 > 500) ? 0 : 1);
+            // digitalWrite(led3, (millis() % 1000 > 500) ? 0 : 1);
+            led3_out = blink_slow;
         }
     }
-    digitalWrite(relay_general, relay_general_out);
+    // digitalWrite(relay_general, relay_general_out);
+    // output the result
+    PORTD &= 0B01111011;
+    PORTD |= (led1_out << 7) + (relay_general_out << 2);
+    PORTB &= 0B111001;
+    PORTB |= (led3_out << 2) + (led2_out << 1);
 }
