@@ -58,7 +58,7 @@ int temp(uint8_t num)
 
 int8_t error_swh()
 {
-    int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
+    int8_t swh_state = ((!digitalRead(swh1)) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     if (swh_state == 0B011)
     {
         return 1;
@@ -76,7 +76,7 @@ int8_t error_swh()
 
 int8_t error_temp()
 {
-    return (temp(ther1) > 40 || temp(ther2) > 40 || temp(ther3) > 40) << 1 + (temp(ther4) > 40);
+    return ((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1 + (temp(ther4) > 40);
 }
 
 bool prev_a = 0;
@@ -158,12 +158,12 @@ void loop()
     if (error_tempB)
     {
         relay_general_out = 1;
-        if (error_tempB & 0B10 == 0B10)
+        if ((error_tempB & 0B10) == 0B10)
         {
             // digitalWrite(led2, (millis() % 1000 > 500) ? 0 : 1);
             led2_out = blink_slow;
         }
-        if (error_tempB & 0B01 == 0B01)
+        if ((error_tempB & 0B01) == 0B01)
         {
             // digitalWrite(led3, (millis() % 1000 > 500) ? 0 : 1);
             led3_out = blink_slow;
