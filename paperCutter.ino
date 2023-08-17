@@ -49,7 +49,7 @@ class LED{
         this->pin=p;
         this->state=LED_STATE::OFF;
     }
-    void run(){
+    void light(){
         switch (state)
         {
         case LED_STATE::ON:
@@ -240,6 +240,6 @@ void loop()
         break;
     }
     for (int i=0;i<3;i++){
-        led_list[i].run();
+        led_list[i].light();
     }
 }
