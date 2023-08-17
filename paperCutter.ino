@@ -48,6 +48,23 @@ class LED{
     void init(int p){
         this->pin=p;
         this->state=LED_STATE::OFF;
+    }
+    void run(){
+        switch (state)
+        {
+        case LED_STATE::ON:
+            digitalWrite(pin, 1);
+            break;
+        case LED_STATE::OFF:
+            digitalWrite(pin, 0);
+            break;
+        case LED_STATE::SLOW_FLASHING:
+            digitalWrite(pin, (millis() % 1000 > 500) ? 0 : 1);
+            break;
+        case LED_STATE::FAST_FLASHING:
+            digitalWrite(pin, (millis() % 500 > 250) ? 0 : 1);
+            break;
+        }
     }    
 };
 LED led_list[3];
@@ -223,20 +240,6 @@ void loop()
         break;
     }
     for (int i=0;i<3;i++){
-        switch (led_list[i].state)
-        {
-        case LED_STATE::ON:
-            digitalWrite(led_list[i].pin, 1);
-            break;
-        case LED_STATE::OFF:
-            digitalWrite(led_list[i].pin, 0);
-            break;
-        case LED_STATE::SLOW_FLASHING:
-            digitalWrite(led_list[i].pin, (millis() % 1000 > 500) ? 0 : 1);
-            break;
-        case LED_STATE::FAST_FLASHING:
-            digitalWrite(led_list[i].pin, (millis() % 500 > 250) ? 0 : 1);
-            break;
-        }
+        led_list[i].run();
     }
 }
