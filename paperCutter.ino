@@ -20,7 +20,7 @@ enum class State{
     OK,
     Err,
 };
-enum class From{
+enum class ErrType{
     rpm,
     swh,
     temp
@@ -32,7 +32,7 @@ class Rusult{
         value=0;
     }
     State state;
-    From from ;
+    ErrType errType ;
     int8_t value;
 };
 enum class LED_STATE{
@@ -110,7 +110,7 @@ Rusult error_swh()
 {
     int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     Rusult r;
-    r.from=From::swh;
+    r.errType=ErrType::swh;
     switch (swh_state)
     {
     case 0B011:
@@ -132,7 +132,7 @@ Rusult error_swh()
 Rusult error_temp()
 {   
     Rusult r;
-    r.from=From::temp;
+    r.errType=ErrType::temp;
     r.value=(temp(ther1) > 40 || temp(ther2) > 40 || temp(ther3) > 40) << 1 + (temp(ther4) > 40);
     if (r.value!=0) r.state=State::Err;
     return r;
@@ -143,7 +143,7 @@ Rusult error_rpm()
 {
     bool a = mainMotor_rpm() < 1000 && digitalRead(swh2) && !digitalRead(swh1);
     Rusult r;
-    r.from=From::rpm;
+    r.errType=ErrType::rpm;
     if (!prev_a && a)
     { // a: ok->error
         a_startTime = millis();
@@ -220,14 +220,14 @@ void loop()
     switch (ff.state)
     {
     case State::Err:
-        switch (ff.from){
-            case From::rpm:
+        switch (ff.errType){
+            case ErrType::rpm:
                 rpm_error_handle(ff);
                 break;
-            case From::swh:
+            case ErrType::swh:
                 swh_error_handle(ff);
                 break;
-            case From::temp:
+            case ErrType::temp:
                 temp_error_handle(ff);
                 break;
         }
