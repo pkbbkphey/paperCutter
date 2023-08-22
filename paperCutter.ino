@@ -110,6 +110,7 @@ Rusult error_swh()
 {
     int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     Rusult r;
+    r.value=0;
     r.errType=ErrType::swh;
     switch (swh_state)
     {
@@ -213,7 +214,7 @@ void setup()
     led_list[2].init(led3);
 }
 
-bool relay_general_out ;
+bool relay_general_out=0 ;
 void loop()
 {
     Rusult ff=f_error();
