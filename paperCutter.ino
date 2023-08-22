@@ -110,7 +110,7 @@ Rusult error_swh()
 {
     int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     Rusult r;
-    r.value=0;
+    r.value=10;
     r.errType=ErrType::swh;
     switch (swh_state)
     {
@@ -125,6 +125,10 @@ Rusult error_swh()
     case 0B010:
         r.state=State::Err;
         r.value=3;
+        break;
+    case 0B000:
+        r.state=State::OK;
+        r.value=0;
         break;
     }
     return r;
