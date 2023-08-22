@@ -60,23 +60,38 @@ int8_t error_swh()
 {
     int8_t swh_state = ((!digitalRead(swh1)) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
     if (swh_state == 0B011)
-    {
         return 1;
-    }
     if (swh_state == 0B001)
-    {
         return 2;
-    }
     if (swh_state == 0B010)
-    {
         return 3;
-    }
+    if (swh_state == 0B111)
+        return 4;
+    if (swh_state == 0B101)
+        return 5;
+    if (swh_state == 0B110)
+        return 6;
+    if (swh_state == 0B000)
+        return 10;
     return 0;
 }
 
+#define d 0.95
+int prev_temp[4] = {0, 0, 0, 0};
+int present_temp[4];
 int8_t error_temp()
 {
-    return ((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1 + (temp(ther4) > 40);
+    present_temp[0] = (1-d)*temp(ther1) + d*prev_temp[0];
+    present_temp[1] = (1-d)*temp(ther2) + d*prev_temp[1];
+    present_temp[2] = (1-d)*temp(ther3) + d*prev_temp[2];
+    present_temp[3] = (1-d)*temp(ther4) + d*prev_temp[3];
+    prev_temp[0] = present_temp[0];
+    prev_temp[1] = present_temp[1];
+    prev_temp[2] = present_temp[2];
+    prev_temp[3] = present_temp[3];
+
+    //return (((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1) + (temp(ther4) > 60);
+    return (((present_temp[0] > 40) || (present_temp[1] > 40) || (present_temp[2] > 40)) << 1) + (present_temp[3] > 60);
 }
 
 bool prev_a = 0;
@@ -108,10 +123,11 @@ void setup()
     // pinMode(swh2, INPUT);
     // pinMode(swh3, INPUT);
     DDRD |= 0B10000100;
-    DDRB |= 0B000110; // set PD2, PD7, PB1, PB2 as output
+    DDRB |= 0B000110;                       // set PD2, PD7, PB1, PB2 as output
     prev_state = digitalRead(saw_spdMeter); // mainMotor_rpm()
 }
 
+bool swh_reset = 0;
 void loop()
 {
     // no need to initialize
@@ -122,31 +138,7 @@ void loop()
     bool blink_fast = (millis() % 500 > 250) ? 0 : 1;
     bool blink_slow = (millis() % 1000 > 500) ? 0 : 1;
 
-    // errors feedback
-    int8_t error_swhB = error_swh();
-    if (error_swhB)
-    {
-        relay_general_out = 1;
-        switch (error_swhB)
-        {
-        case 1:
-            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
-            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
-            led2_out = blink_fast;
-            led3_out = blink_fast;
-            break;
-        case 2:
-            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
-            led3_out = blink_fast;
-            break;
-        case 3:
-            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
-            led2_out = blink_fast;
-            break;
-        default:
-            break;
-        }
-    }
+    //  errors feedback
     if (error_rpm())
     {
         // digitalWrite(relay_general, 1);
@@ -154,6 +146,36 @@ void loop()
         // digitalWrite(led2, 1);
         led2_out = 1;
     }
+
+    int8_t error_swhB = error_swh();
+    if (((error_swhB == 1) || (error_swhB == 2) || (error_swhB == 3)) || !swh_reset)
+    {
+        swh_reset = 0;
+        relay_general_out = 1;
+        switch (error_swhB)
+        {
+        case 1:
+        case 4:
+            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
+            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            led2_out = blink_fast;
+            led3_out = blink_fast;
+            break;
+        case 2:
+        case 5:
+            // digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
+            led3_out = blink_fast;
+            break;
+        case 3:
+        case 6:
+            // digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
+            led2_out = blink_fast;
+            break;
+        }
+    }
+    if (error_swhB == 10)
+        swh_reset = 1;
+
     int8_t error_tempB = error_temp();
     if (error_tempB)
     {
