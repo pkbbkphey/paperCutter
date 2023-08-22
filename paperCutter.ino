@@ -1,4 +1,4 @@
-// PINOUTS
+// PINOUTS  hello
 // outputs
 #define led1 7 // small red LED
 #define led2 9
