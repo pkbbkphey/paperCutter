@@ -213,9 +213,9 @@ void setup()
     led_list[2].init(led3);
 }
 
+bool relay_general_out ;
 void loop()
 {
-    bool relay_general_out = 0;
     Rusult ff=f_error();
     switch (ff.state)
     {
@@ -233,13 +233,21 @@ void loop()
         }
         relay_general_out = 1;
         break;
-    case State::OK:
-        led_list[0].state=LED_STATE::OFF;
-        led_list[1].state=LED_STATE::OFF;
-        led_list[2].state=LED_STATE::OFF;
+    case State::OK: 
+        if(relay_general_out){
+            if(!error_swh().value){
+                relay_general_out=0;
+            }
+        }else{
+            led_list[0].state=LED_STATE::OFF;
+            led_list[1].state=LED_STATE::OFF;
+            led_list[2].state=LED_STATE::OFF;
+            relay_general_out=0;
+        }
         break;
     }
     for (int i=0;i<3;i++){
         led_list[i].light();
     }
+    digitalWrite(relay_general,relay_general_out);
 }
