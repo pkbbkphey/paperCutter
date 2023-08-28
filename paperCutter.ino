@@ -16,6 +16,59 @@
 // ERROR TYPES
 // #define error_rpm mainMotor_rpm() < 1000 && digitalRead(swh2)
 
+enum class State{
+    OK,
+    Err,
+};
+enum class ErrType{
+    rpm,
+    swh,
+    temp
+};
+class Rusult{
+    public:
+    Rusult(){
+        state=State::OK;
+        value=0;
+    }
+    State state;
+    ErrType errType ;
+    int8_t value;
+};
+enum class LED_STATE{
+    ON,
+    OFF,
+    SLOW_FLASHING,
+    FAST_FLASHING
+};
+class LED{
+    public:
+    LED_STATE state;
+    int pin;
+    void init(int p){
+        this->pin=p;
+        this->state=LED_STATE::OFF;
+    }
+    void light(){
+        switch (state)
+        {
+        case LED_STATE::ON:
+            digitalWrite(pin, 1);
+            break;
+        case LED_STATE::OFF:
+            digitalWrite(pin, 0);
+            break;
+        case LED_STATE::SLOW_FLASHING:
+            digitalWrite(pin, (millis() % 1000 > 500) ? 0 : 1);
+            break;
+        case LED_STATE::FAST_FLASHING:
+            digitalWrite(pin, (millis() % 500 > 250) ? 0 : 1);
+            break;
+        }
+    }    
+};
+LED led_list[3];
+
 unsigned long prev_time = 0;
 bool prev_state, present_state;
 float rpm = 0;
@@ -50,53 +103,104 @@ float mainMotor_rpm()
 
 int temp(uint8_t num)
 {
-    // int8_t pins[4] = {19U, 18U, 17U, 16U};
-    // Serial.println(digitalRead(6));
     return map(analogRead(num), 576, 606, 30, 37);
 }
 
-int8_t error_swh()
+Rusult error_swh()
 {
     int8_t swh_state = (!digitalRead(swh1) << 2) + (digitalRead(swh2) << 1) + digitalRead(swh3);
-    Serial.print(swh_state, 2);
-    Serial.print(' ');
-    if (swh_state == 0B011)
+    Rusult r;
+    r.value=10;
+    r.errType=ErrType::swh;
+    switch (swh_state)
     {
-        return 1;
+    case 0B011:
+        r.state=State::Err;
+        r.value=1;
+        break;
+    case 0B001:
+        r.state=State::Err;
+        r.value=2;
+        break;
+    case 0B010:
+        r.state=State::Err;
+        r.value=3;
+        break;
+    case 0B000:
+        r.state=State::OK;
+        r.value=0;
+        break;
     }
-    if (swh_state == 0B001)
-    {
-        return 2;
-    }
-    if (swh_state == 0B010)
-    {
-        return 3;
-    }
-    return 0;
+    return r;
 }
 
-int8_t error_temp()
-{
-    return (temp(ther1) > 40 || temp(ther2) > 40 || temp(ther3) > 40) << 1 + (temp(ther4) > 40);
+Rusult error_temp()
+{   
+    Rusult r;
+    r.errType=ErrType::temp;
+    r.value=(temp(ther1) > 40 || temp(ther2) > 40 || temp(ther3) > 40) << 1 + (temp(ther4) > 40);
+    if (r.value!=0) r.state=State::Err;
+    return r;
 }
-
 bool prev_a = 0;
 unsigned long a_startTime = millis();
-bool error_rpm()
+Rusult error_rpm()
 {
     bool a = mainMotor_rpm() < 1000 && digitalRead(swh2) && !digitalRead(swh1);
+    Rusult r;
+    r.errType=ErrType::rpm;
     if (!prev_a && a)
     { // a: ok->error
         a_startTime = millis();
     }
     if ((millis() - a_startTime) > 500 && a)
     { // time out and error
-        return 1;
+        r.state=State::Err;
+        return r;
     }
     prev_a = a;
-    return 0;
+    return r;
 }
 
+Rusult f_error(){
+    auto f=error_temp();
+    if (f.state==State::Err) return f;
+    f= error_rpm();
+    if (f.state==State::Err) return f;
+    f=error_swh();
+    if (f.state==State::Err) return f;
+    Rusult r;
+    return r;
+}
+
+void temp_error_handle(Rusult e){
+    if (e.value & 0B10)
+    {
+        led_list[1].state=LED_STATE::SLOW_FLASHING;
+    }
+    if (e.value & 0B01)
+    {
+        led_list[2].state=LED_STATE::SLOW_FLASHING;
+    }
+}
+void swh_error_handle(Rusult e){
+    switch (e.value)
+    {
+    case 1:
+        led_list[1].state=LED_STATE::FAST_FLASHING;
+        led_list[2].state=LED_STATE::FAST_FLASHING;
+        break;
+    case 2:
+        led_list[2].state=LED_STATE::FAST_FLASHING;
+        break;
+    case 3:
+        led_list[1].state=LED_STATE::FAST_FLASHING;
+        break;
+    }
+}
+void rpm_error_handle(Rusult e){
+    led_list[1].state=LED_STATE::ON;
+}
 void setup()
 {
     Serial.begin(115200);
@@ -109,56 +213,46 @@ void setup()
     pinMode(swh2, INPUT);
     pinMode(swh3, INPUT);
     prev_state = digitalRead(saw_spdMeter); // mainMotor_rpm()
+    led_list[0].init(led1);
+    led_list[1].init(led2);
+    led_list[2].init(led3);
 }
 
+bool relay_general_out=0 ;
 void loop()
 {
-    // initialize
-    digitalWrite(led1, 0);
-    digitalWrite(led2, 0);
-    digitalWrite(led3, 0);
-    bool relay_general_out = 0;
-    // digitalWrite(relay_general, 0);
-
-    // errors feedback
-    int8_t error_swhB = error_swh();
-    if (error_swhB)
+    Rusult ff=f_error();
+    switch (ff.state)
     {
-        relay_general_out = 1;
-        switch (error_swhB)
-        {
-        case 1:
-            digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
-            digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
-            break;
-        case 2:
-            digitalWrite(led3, (millis() % 500 > 250) ? 0 : 1);
-            break;
-        case 3:
-            digitalWrite(led2, (millis() % 500 > 250) ? 0 : 1);
-            break;
-        default:
-            break;
+    case State::Err:
+        switch (ff.errType){
+            case ErrType::rpm:
+                rpm_error_handle(ff);
+                break;
+            case ErrType::swh:
+                swh_error_handle(ff);
+                break;
+            case ErrType::temp:
+                temp_error_handle(ff);
+                break;
         }
-    }
-    if (error_rpm())
-    {
-        // digitalWrite(relay_general, 1);
         relay_general_out = 1;
-        digitalWrite(led2, 1);
-    }
-    int8_t error_tempB = error_temp();
-    if (error_tempB)
-    {
-        relay_general_out = 1;
-        if (error_tempB && 0B10 == 0B10)
-        {
-            digitalWrite(led2, (millis() % 1000 > 500) ? 0 : 1);
+        break;
+    case State::OK: 
+        if(relay_general_out){
+            if(!error_swh().value){
+                relay_general_out=0;
+            }
+        }else{
+            led_list[0].state=LED_STATE::OFF;
+            led_list[1].state=LED_STATE::OFF;
+            led_list[2].state=LED_STATE::OFF;
+            relay_general_out=0;
         }
-        if (error_tempB && 0B01 == 0B01)
-        {
-            digitalWrite(led3, (millis() % 1000 > 500) ? 0 : 1);
-        }
+        break;
     }
-    digitalWrite(relay_general, relay_general_out);
+    for (int i=0;i<3;i++){
+        led_list[i].light();
+    }
+    digitalWrite(relay_general,relay_general_out);
 }
