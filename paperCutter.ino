@@ -81,16 +81,16 @@ int prev_temp[4] = {0, 0, 0, 0};
 int present_temp[4];
 int8_t error_temp()
 {
-    present_temp[0] = (1-d)*temp(ther1) + d*prev_temp[0];
-    present_temp[1] = (1-d)*temp(ther2) + d*prev_temp[1];
-    present_temp[2] = (1-d)*temp(ther3) + d*prev_temp[2];
-    present_temp[3] = (1-d)*temp(ther4) + d*prev_temp[3];
+    present_temp[0] = (1 - d) * temp(ther1) + d * prev_temp[0];
+    present_temp[1] = (1 - d) * temp(ther2) + d * prev_temp[1];
+    present_temp[2] = (1 - d) * temp(ther3) + d * prev_temp[2];
+    present_temp[3] = (1 - d) * temp(ther4) + d * prev_temp[3];
     prev_temp[0] = present_temp[0];
     prev_temp[1] = present_temp[1];
     prev_temp[2] = present_temp[2];
     prev_temp[3] = present_temp[3];
 
-    //return (((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1) + (temp(ther4) > 60);
+    // return (((temp(ther1) > 40) || (temp(ther2) > 40) || (temp(ther3) > 40)) << 1) + (temp(ther4) > 60);
     return (((present_temp[0] > 40) || (present_temp[1] > 40) || (present_temp[2] > 40)) << 1) + (present_temp[3] > 60);
 }
 
@@ -135,7 +135,7 @@ void loop()
     // digitalWrite(led2, 0);
     // digitalWrite(led3, 0);
     bool relay_general_out = 0, led1_out = 0, led2_out = 0, led3_out = 0;
-    bool blink_fast = (millis() % 500 > 250) ? 0 : 1;
+    bool blink_fast = (millis() % 300 > 150) ? 0 : 1;
     bool blink_slow = (millis() % 1000 > 500) ? 0 : 1;
 
     //  errors feedback
